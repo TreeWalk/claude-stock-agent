@@ -4,6 +4,7 @@
       "Bash(python tools/fetch.py*)",
       "Bash(python tools/market.py*)",
       "Bash(python tools/report.py*)",
+      "Bash(python tools/chart_report.py*)",
       "Bash(pip install*)",
       "Bash(cat reports/*)",
       "Bash(ls reports/)",

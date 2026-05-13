@@ -189,11 +189,43 @@ pip install akshare pandas requests
 
 ## 报告生成
 
-所有分析完成后，将报告写入 Markdown 文件，然后生成 HTML：
+有两种报告生成方式：
 
+### 方式一：简单 Markdown → HTML（个股分析、简单报告）
 ```bash
 python tools/report.py --code <标题> --name <副标题> --input reports/<文件>.md --output reports/<文件>.html
 ```
+
+### 方式二：图表增强版（市场综述、板块分析 — 推荐）
+```bash
+python tools/chart_report.py --config reports/<配置>.json --output reports/<文件>.html
+```
+
+图表版报告支持以下图表类型：
+- `bar` — 柱状图（指数涨跌、个股对比）
+- `horizontal_bar` — 横向柱状图（板块排名）
+- `pie` — 饼图（涨停板块分布、资金来源）
+- `doughnut` — 环形图（行业占比）
+- `stacked_bar` — 堆叠柱状图（资金分层流向）
+- `table` — 增强表格（支持颜色高亮、标签）
+- `markdown` — 文本内容
+
+JSON 配置格式示例：
+```json
+{
+  "title": "报告标题",
+  "subtitle": "副标题",
+  "date": "2026-05-13",
+  "sections": [
+    {"type": "bar", "title": "指数涨跌", "labels": ["上证","深证"], "datasets": [{"label":"涨跌幅","data":[0.67,1.67]}]},
+    {"type": "pie", "title": "板块分布", "labels": ["算力","绿电"], "datasets": [{"data":[35,25]}], "half_width": true},
+    {"type": "table", "title": "涨停榜", "headers": ["名称","板块"], "rows": [["xxx","算力"]], "highlights": {"positive_cols":[2], "tag_cols":[1]}},
+    {"type": "markdown", "title": "分析", "content": "markdown内容"}
+  ]
+}
+```
+
+两个图表设置 `"half_width": true` 会自动并排显示。
 
 ## 数据源优先级
 
