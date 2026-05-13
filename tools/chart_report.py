@@ -323,7 +323,7 @@ def _render_gauge(section: dict) -> str:
             <div class="thm-marks" style="height:{TUBE_H}px">{scale_html}</div>
             <div class="thm-device">
               <div class="thm-tube" style="height:{TUBE_H}px">
-                <div class="thm-fill" style="height:{fill_px}px;background:linear-gradient(to top,{zone_color},{zone_color}cc)"></div>
+                <div class="thm-fill" style="height:{fill_px}px"></div>
                 <div class="thm-shine"></div>
               </div>
               <div class="thm-bulb">
@@ -487,6 +487,7 @@ tbody tr:nth-child(even) td { background: #f5eed6; }
 .thm-fill {
   position:absolute; bottom:0; left:4px; right:4px;
   border-radius:10px 10px 0 0;
+  background: linear-gradient(to top, #27ae60, #6fca3a 25%, #d4a94a 50%, #e67e22 75%, #c0392b);
   box-shadow: 0 -2px 6px rgba(0,0,0,.06);
   transition: height 1.2s cubic-bezier(.3,.8,.3,1);
 }
@@ -497,7 +498,7 @@ tbody tr:nth-child(even) td { background: #f5eed6; }
 }
 
 .thm-bulb {
-  position:relative; width:48px; height:48px; margin:-4px auto 0;
+  position:relative; width:48px; height:48px; margin:-4px 0 0 -9px;
   border:2px solid #bfb597; border-radius:50%;
   box-shadow: 0 4px 12px rgba(80,60,20,.15), inset 0 -2px 6px rgba(0,0,0,.08);
 }
