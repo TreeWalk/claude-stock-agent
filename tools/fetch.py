@@ -9,12 +9,16 @@
     python tools/fetch.py price 600519 --days 60
     python tools/fetch.py dividends 600519
     python tools/fetch.py sector 白酒
+
+网络选项:
+    python tools/fetch.py --no-proxy stock-info 600519   # 禁用代理
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 
@@ -57,14 +61,37 @@ def stock_info(code: str) -> str:
 
 def financial_indicators(code: str, limit: int = 10) -> str:
     code = _normalize_code(code)
-    df = ak.stock_a_indicator_lg(symbol=code)
+    try:
+        df = ak.stock_a_indicator_lg(symbol=code)
+    except AttributeError:
+        df = ak.stock_zh_a_hist(
+            symbol=code, period="daily",
+            start_date=(pd.Timestamp.now() - pd.Timedelta(days=limit * 3)).strftime("%Y%m%d"),
+            end_date=pd.Timestamp.now().strftime("%Y%m%d"),
+            adjust="qfq",
+        )
     _sleep()
     return _df_to_json(df, limit)
 
 
 def financial_statements(code: str, report_type: str) -> str:
     code = _normalize_code(code)
-    df = ak.stock_financial_report_sina(stock=code, symbol=report_type)
+    try:
+        df = ak.stock_financial_report_sina(stock=code, symbol=report_type)
+    except Exception:
+        type_map = {"利润表": "yjbb", "资产负债表": "zcfz", "现金流量表": "xjll"}
+        indicator = type_map.get(report_type, "yjbb")
+        try:
+            if report_type == "利润表":
+                df = ak.stock_profit_sheet_by_report_em(symbol=code)
+            elif report_type == "资产负债表":
+                df = ak.stock_balance_sheet_by_report_em(symbol=code)
+            elif report_type == "现金流量表":
+                df = ak.stock_cash_flow_sheet_by_report_em(symbol=code)
+            else:
+                df = pd.DataFrame()
+        except (AttributeError, Exception):
+            df = pd.DataFrame()
     _sleep()
     if not df.empty:
         df = df.head(5)
@@ -85,7 +112,13 @@ def price_history(code: str, days: int = 60) -> str:
 
 def dividend_history(code: str) -> str:
     code = _normalize_code(code)
-    df = ak.stock_history_dividend_detail(symbol=code, indicator="分红")
+    try:
+        df = ak.stock_history_dividend_detail(symbol=code, indicator="分红")
+    except Exception:
+        try:
+            df = ak.stock_dividend_cninfo(symbol=code)
+        except (AttributeError, Exception):
+            df = pd.DataFrame()
     _sleep()
     return _df_to_json(df)
 
@@ -100,6 +133,7 @@ def sector_stocks(sector_name: str) -> str:
 
 def main():
     parser = argparse.ArgumentParser(description="A股数据获取工具")
+    parser.add_argument("--no-proxy", action="store_true", help="禁用代理")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p1 = sub.add_parser("stock-info", help="个股基本信息")
@@ -130,6 +164,10 @@ def main():
 
     args = parser.parse_args()
 
+    if args.no_proxy:
+        for key in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]:
+            os.environ.pop(key, None)
+
     try:
         if args.command == "stock-info":
             result = stock_info(args.code)
@@ -152,7 +190,7 @@ def main():
 
         print(result)
     except Exception as e:
-        print(json.dumps({"error": str(e)}, ensure_ascii=False), file=sys.stderr)
+        print(json.dumps({"error": str(e)}, ensure_ascii=False))
         sys.exit(1)
 
 
