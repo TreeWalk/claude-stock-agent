@@ -278,56 +278,69 @@ def _render_gauge(section: dict) -> str:
             zone_color, zone_name, zone_desc = color, name, desc
             break
     display_label = label or zone_name
-    fill_pct = max(3, min(98, score))
 
-    scale_items = [
-        (100, "极度贪婪", "#c0392b"), (75, "贪婪", "#e67e22"),
-        (50, "中性", "#d4a94a"), (25, "恐惧", "#27ae60"), (0, "极度恐惧", "#2980b9"),
+    TUBE_H = 240
+    BULB_D = 48
+    fill_px = max(6, int(TUBE_H * score / 100))
+
+    scale_data = [
+        (0,  "极度恐惧", "#2980b9"), (25, "恐惧", "#27ae60"),
+        (50, "中性",     "#d4a94a"), (75, "贪婪", "#e67e22"),
+        (100,"极度贪婪", "#c0392b"),
     ]
     scale_html = ""
-    for val, txt, col in scale_items:
-        is_active = "thm-sc-active" if abs(score - val) <= 12 else ""
-        scale_html += f"""<div class="thm-sc {is_active}" style="bottom:{val}%">
-            <span class="thm-sc-num">{val}</span>
-            <span class="thm-sc-tick"></span>
-            <span class="thm-sc-txt" style="color:{col}">{txt}</span>
-        </div>"""
+    for val, txt, col in scale_data:
+        y = TUBE_H - int(TUBE_H * val / 100)
+        active = " thm-active" if abs(score - val) <= 12 else ""
+        scale_html += (
+            f'<div class="thm-mark{active}" style="top:{y}px">'
+            f'<span class="thm-mv">{val}</span>'
+            f'<span class="thm-mt"></span>'
+            f'<span class="thm-ml" style="color:{col}">{txt}</span>'
+            f'</div>'
+        )
 
     ind_html = ""
     for ind in indicators:
         sig = ind.get("signal", "neutral")
-        sig_colors = {"danger": "#c0392b", "warning": "#e67e22", "neutral": "#a67c28", "safe": "#27ae60", "cold": "#2980b9"}
-        c = sig_colors.get(sig, "#a67c28")
+        sc = {"danger":"#c0392b","warning":"#e67e22","neutral":"#a67c28","safe":"#27ae60","cold":"#2980b9"}
+        c = sc.get(sig, "#a67c28")
         w = max(4, min(100, ind.get("score", 50)))
-        ind_html += f"""<div class="thm-ind">
-            <div class="thm-ind-row"><span class="thm-ind-name">{ind.get("name","")}</span><span class="thm-ind-val" style="color:{c}">{ind.get("value","")}</span></div>
-            <div class="thm-bar-track"><div class="thm-bar-fill" style="width:{w}%;background:{c}"></div></div>
-        </div>"""
+        ind_html += (
+            f'<div class="thm-ind">'
+            f'<div class="thm-ind-r"><span class="thm-ind-n">{ind.get("name","")}</span>'
+            f'<span class="thm-ind-v" style="color:{c}">{ind.get("value","")}</span></div>'
+            f'<div class="thm-bar-bg"><div class="thm-bar-fg" style="width:{w}%;background:{c}"></div></div>'
+            f'</div>'
+        )
 
     return f"""
     <div class="card thm-card">
-        <h2>{section.get('title', '市场温度计')}</h2>
-        {f'<p class="thm-sub">{subtitle}</p>' if subtitle else ''}
-        <div class="thm-wrap">
-            <div class="thm-col-left">
-                <div class="thm-scale">{scale_html}</div>
-                <div class="thm-stem">
-                    <div class="thm-tube">
-                        <div class="thm-mercury" style="height:{fill_pct}%;background:linear-gradient(to top,{zone_color},{zone_color}dd)"></div>
-                        <div class="thm-glare"></div>
-                    </div>
-                    <div class="thm-cap"></div>
-                    <div class="thm-bulb" style="background:radial-gradient(circle at 38% 38%,{zone_color}ee,{zone_color})">
-                        <div class="thm-bulb-hi"></div>
-                    </div>
-                </div>
+        <h2>{section.get("title","市场温度计")}</h2>
+        {f'<p class="thm-sub">{subtitle}</p>' if subtitle else ""}
+        <div class="thm-outer">
+          <div class="thm-left" style="height:{TUBE_H + BULB_D + 10}px">
+            <div class="thm-marks" style="height:{TUBE_H}px">{scale_html}</div>
+            <div class="thm-device">
+              <div class="thm-tube" style="height:{TUBE_H}px">
+                <div class="thm-fill" style="height:{fill_px}px;background:linear-gradient(to top,{zone_color},{zone_color}cc)"></div>
+                <div class="thm-shine"></div>
+              </div>
+              <div class="thm-bulb">
+                <div class="thm-bulb-fill" style="background:radial-gradient(circle at 35% 35%,{zone_color}dd,{zone_color})"></div>
+                <div class="thm-bulb-hi"></div>
+              </div>
             </div>
-            <div class="thm-col-right">
-                <div class="thm-big"><span class="thm-num" style="color:{zone_color}">{score}</span><span class="thm-of">/100</span></div>
-                <div class="thm-badge" style="background:{zone_color}">{display_label}</div>
-                <p class="thm-advice">{zone_desc}</p>
-                {f'<div class="thm-inds">{ind_html}</div>' if indicators else ''}
+          </div>
+          <div class="thm-right">
+            <div class="thm-score-row">
+              <span class="thm-num" style="color:{zone_color}">{score}</span>
+              <span class="thm-den">/100</span>
             </div>
+            <span class="thm-badge" style="background:{zone_color}">{display_label}</span>
+            <p class="thm-desc">{zone_desc}</p>
+            {f'<div class="thm-inds">{ind_html}</div>' if indicators else ""}
+          </div>
         </div>
     </div>"""
 
@@ -442,77 +455,84 @@ tbody tr:nth-child(even) td { background: #f5eed6; }
 
 /* ── Thermometer ── */
 .thm-card { overflow: visible; }
-.thm-sub { font-size: 13px; color: #9e8e6e; margin: 4px 0 0; }
+.thm-sub  { font-size:13px; color:#9e8e6e; margin:4px 0 0; }
 
-.thm-wrap { display: flex; gap: 36px; align-items: center; margin-top: 18px; }
-.thm-col-left { position: relative; flex: 0 0 auto; display: flex; gap: 0; }
-.thm-col-right { flex: 1; min-width: 0; }
+.thm-outer { display:flex; gap:32px; align-items:center; margin-top:18px; }
+.thm-left  { position:relative; flex:0 0 auto; display:flex; align-items:flex-start; }
+.thm-right { flex:1; min-width:0; }
 
-/* — scale labels (left of tube) — */
-.thm-scale { position: relative; width: 72px; height: 280px; margin-right: 6px; flex-shrink: 0; }
-.thm-sc { position: absolute; right: 0; display: flex; align-items: center; gap: 0; transform: translateY(50%); white-space: nowrap; }
-.thm-sc-num { font-size: 11px; color: #b0a48a; width: 24px; text-align: right; font-weight: 600; }
-.thm-sc-tick { display: block; width: 8px; height: 1.5px; background: #c4b896; margin: 0 5px; flex-shrink: 0; }
-.thm-sc-txt { font-size: 10.5px; font-weight: 600; letter-spacing: .5px; }
-.thm-sc-active .thm-sc-num { color: #6b4c1e; font-size: 12px; }
-.thm-sc-active .thm-sc-tick { width: 12px; height: 2.5px; background: #8b6914; }
-.thm-sc-active .thm-sc-txt { font-size: 12px; }
+/* ─ scale marks ─ */
+.thm-marks { position:relative; width:80px; margin-right:8px; }
+.thm-mark  { position:absolute; left:0; right:0; display:flex; align-items:center;
+  transform:translateY(-50%); white-space:nowrap; opacity:.75; transition:opacity .3s; }
+.thm-mark.thm-active { opacity:1; }
+.thm-mv { font-size:11px; color:#b0a48a; width:22px; text-align:right; font-weight:600; }
+.thm-mt { display:inline-block; width:8px; height:1.5px; background:#c4b896; margin:0 5px; }
+.thm-ml { font-size:10.5px; font-weight:600; letter-spacing:.3px; }
+.thm-active .thm-mv { color:#5a3e18; font-size:12.5px; }
+.thm-active .thm-mt { width:12px; height:2.5px; background:#8b6914; }
+.thm-active .thm-ml { font-size:12.5px; font-weight:700; }
 
-/* — thermometer stem — */
-.thm-stem { position: relative; width: 28px; height: 280px; display: flex; flex-direction: column; align-items: center; }
+/* ─ thermometer body ─ */
+.thm-device { position:relative; width:30px; }
 
-.thm-cap { width: 28px; height: 14px; background: linear-gradient(to bottom, #d8ceb4, #c4b896);
-  border-radius: 14px 14px 0 0; border: 2px solid #b8aa8a; border-bottom: none; position: relative; z-index: 3;
-  box-shadow: inset 0 2px 4px rgba(255,255,255,.4); }
+.thm-tube {
+  position:relative; width:30px;
+  background: linear-gradient(90deg, #d8d0ba, #f0eadb 30%, #faf6ee 50%, #ede5d2 75%, #d8d0ba);
+  border:2px solid #bfb597; border-radius:15px 15px 0 0;
+  overflow:hidden;
+  box-shadow: inset 2px 0 6px rgba(0,0,0,.04), inset -1px 0 4px rgba(255,255,255,.4),
+              2px 2px 8px rgba(100,80,40,.1);
+}
+.thm-fill {
+  position:absolute; bottom:0; left:4px; right:4px;
+  border-radius:10px 10px 0 0;
+  box-shadow: 0 -2px 6px rgba(0,0,0,.06);
+  transition: height 1.2s cubic-bezier(.3,.8,.3,1);
+}
+.thm-shine {
+  position:absolute; top:8px; bottom:8px; left:6px; width:5px;
+  background: linear-gradient(180deg, rgba(255,255,255,.5), rgba(255,255,255,.12) 50%, rgba(255,255,255,.25));
+  border-radius:3px; pointer-events:none;
+}
 
-.thm-tube { position: relative; width: 28px; flex: 1; z-index: 2;
-  background: linear-gradient(to right, #ddd5c0 0%, #f2eadb 25%, #faf6ee 45%, #f2eadb 70%, #ddd5c0 100%);
-  border-left: 2px solid #b8aa8a; border-right: 2px solid #b8aa8a;
-  overflow: hidden; }
-
-.thm-mercury { position: absolute; bottom: 0; left: 4px; right: 4px;
-  border-radius: 8px 8px 0 0;
-  box-shadow: 0 0 8px rgba(0,0,0,.08);
-  transition: height 1.4s cubic-bezier(.25,.85,.35,1.05); }
-
-.thm-glare { position: absolute; top: 0; bottom: 0; left: 5px; width: 5px;
-  background: linear-gradient(to bottom, rgba(255,255,255,.55), rgba(255,255,255,.15) 60%, rgba(255,255,255,.3));
-  border-radius: 3px; pointer-events: none; }
-
-.thm-bulb { position: relative; width: 48px; height: 48px; border-radius: 50%; z-index: 1;
-  margin-top: -6px; margin-left: -10px;
-  border: 2px solid #b8aa8a;
-  box-shadow: 0 4px 14px rgba(0,0,0,.12), inset 0 -3px 8px rgba(0,0,0,.1);
-  transition: background .8s ease; }
-
-.thm-bulb-hi { position: absolute; top: 9px; left: 11px; width: 14px; height: 14px;
+.thm-bulb {
+  position:relative; width:48px; height:48px; margin:-4px auto 0;
+  border:2px solid #bfb597; border-radius:50%;
+  box-shadow: 0 4px 12px rgba(80,60,20,.15), inset 0 -2px 6px rgba(0,0,0,.08);
+}
+.thm-bulb-fill {
+  position:absolute; inset:3px; border-radius:50%;
+  transition: background .6s;
+}
+.thm-bulb-hi {
+  position:absolute; top:8px; left:10px; width:13px; height:13px;
   background: radial-gradient(circle, rgba(255,255,255,.55), transparent 70%);
-  border-radius: 50%; }
+  border-radius:50%;
+}
 
-/* — right column — */
-.thm-big { display: flex; align-items: baseline; gap: 3px; margin-bottom: 8px; }
-.thm-num { font-size: 56px; font-weight: 700; line-height: 1; letter-spacing: -2px; }
-.thm-of { font-size: 20px; color: #b0a48a; font-weight: 600; }
+/* ─ right side ─ */
+.thm-score-row { display:flex; align-items:baseline; gap:3px; margin-bottom:8px; }
+.thm-num  { font-size:54px; font-weight:700; line-height:1; letter-spacing:-2px; }
+.thm-den  { font-size:20px; color:#b0a48a; font-weight:600; }
+.thm-badge {
+  display:inline-block; color:#fff; padding:5px 18px; border-radius:4px;
+  font-size:15px; font-weight:700; letter-spacing:3px; margin-bottom:14px;
+  box-shadow:0 2px 8px rgba(0,0,0,.15);
+}
+.thm-desc { font-size:13.5px; color:#6b4c1e; line-height:1.7; margin-bottom:16px; }
 
-.thm-badge { display: inline-block; color: #fff; padding: 5px 20px; border-radius: 4px;
-  font-size: 15px; font-weight: 700; letter-spacing: 4px; margin-bottom: 14px;
-  box-shadow: 0 2px 10px rgba(0,0,0,.15); }
+/* ─ indicators ─ */
+.thm-inds   { border-top:1.5px solid #d4c5a0; padding-top:14px; }
+.thm-ind    { margin-bottom:10px; }
+.thm-ind-r  { display:flex; justify-content:space-between; margin-bottom:3px; }
+.thm-ind-n  { font-size:12.5px; color:#6b4c1e; font-weight:600; }
+.thm-ind-v  { font-size:12px; font-weight:700; }
+.thm-bar-bg { height:7px; background:#e8dfc5; border-radius:4px; overflow:hidden; }
+.thm-bar-fg { height:100%; border-radius:4px; transition:width .8s ease; }
 
-.thm-advice { font-size: 13.5px; color: #6b4c1e; line-height: 1.7; margin-bottom: 18px; }
-
-/* — indicator bars — */
-.thm-inds { border-top: 1.5px solid #d4c5a0; padding-top: 16px; }
-.thm-ind { margin-bottom: 11px; }
-.thm-ind-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
-.thm-ind-name { font-size: 12.5px; color: #6b4c1e; font-weight: 600; }
-.thm-ind-val { font-size: 12px; font-weight: 700; }
-.thm-bar-track { height: 7px; background: #e8dfc5; border-radius: 4px; overflow: hidden; }
-.thm-bar-fill { height: 100%; border-radius: 4px; transition: width .9s ease; }
-
-@media (max-width: 768px) {
-  .thm-wrap { flex-direction: column; align-items: center; }
-  .thm-stem { height: 240px; }
-  .thm-scale { height: 240px; }
+@media(max-width:768px) {
+  .thm-outer { flex-direction:column; align-items:center; }
 }
 """
 
