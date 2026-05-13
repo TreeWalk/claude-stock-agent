@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python tools/fetch.py*)",
+      "Bash(python tools/market.py*)",
+      "Bash(python tools/report.py*)",
+      "Bash(pip install*)",
+      "Bash(cat reports/*)",
+      "Bash(ls reports/)",
+      "Bash(mkdir -p reports)",
+      "Bash(curl -s*qt.gtimg.cn*)",
+      "Bash(curl -s*eastmoney.com*)"
+    ]
+  }
+}
