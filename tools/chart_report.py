@@ -265,77 +265,70 @@ def _render_gauge(section: dict) -> str:
     indicators = section.get("indicators", [])
     subtitle = section.get("subtitle", "")
 
-    if score >= 80:
-        zone_color, zone_name = "#c0392b", "极度贪婪"
-        zone_desc = "市场过热，追高风险极大，建议减仓观望"
-    elif score >= 65:
-        zone_color, zone_name = "#e67e22", "贪婪"
-        zone_desc = "市场偏热，赚钱效应集中于龙头，注意分化"
-    elif score >= 45:
-        zone_color, zone_name = "#d4a94a", "中性"
-        zone_desc = "市场情绪适中，多空均衡，可正常操作"
-    elif score >= 25:
-        zone_color, zone_name = "#27ae60", "恐惧"
-        zone_desc = "市场偏冷，恐慌情绪蔓延，关注超跌机会"
-    else:
-        zone_color, zone_name = "#2980b9", "极度恐惧"
-        zone_desc = "市场冰点，往往是中长期布局的好时机"
-
+    zones = [
+        (80, "#c0392b", "极度贪婪", "市场过热，追高风险极大，建议减仓观望"),
+        (65, "#e67e22", "贪婪",     "市场偏热，赚钱效应集中于龙头，注意分化"),
+        (45, "#d4a94a", "中性",     "市场情绪适中，多空均衡，可正常操作"),
+        (25, "#27ae60", "恐惧",     "市场偏冷，恐慌情绪蔓延，关注超跌机会"),
+        (0,  "#2980b9", "极度恐惧", "市场冰点，往往是中长期布局的好时机"),
+    ]
+    zone_color, zone_name, zone_desc = "#d4a94a", "中性", ""
+    for threshold, color, name, desc in zones:
+        if score >= threshold:
+            zone_color, zone_name, zone_desc = color, name, desc
+            break
     display_label = label or zone_name
-    needle_deg = -90 + (score / 100) * 180
+    fill_pct = max(3, min(98, score))
 
-    indicator_rows = ""
+    scale_items = [
+        (100, "极度贪婪", "#c0392b"), (75, "贪婪", "#e67e22"),
+        (50, "中性", "#d4a94a"), (25, "恐惧", "#27ae60"), (0, "极度恐惧", "#2980b9"),
+    ]
+    scale_html = ""
+    for val, txt, col in scale_items:
+        is_active = "thm-sc-active" if abs(score - val) <= 12 else ""
+        scale_html += f"""<div class="thm-sc {is_active}" style="bottom:{val}%">
+            <span class="thm-sc-num">{val}</span>
+            <span class="thm-sc-tick"></span>
+            <span class="thm-sc-txt" style="color:{col}">{txt}</span>
+        </div>"""
+
+    ind_html = ""
     for ind in indicators:
-        ind_name = ind.get("name", "")
-        ind_val = ind.get("value", "")
-        ind_score = ind.get("score", 50)
-        ind_signal = ind.get("signal", "")
-        signal_colors = {"danger": "#c0392b", "warning": "#e67e22", "neutral": "#a67c28", "safe": "#27ae60", "cold": "#2980b9"}
-        sig_color = signal_colors.get(ind_signal, "#a67c28")
-        bar_w = max(4, min(100, ind_score))
-        indicator_rows += f"""
-        <div class="gauge-ind">
-            <div class="gauge-ind-header">
-                <span class="gauge-ind-name">{ind_name}</span>
-                <span class="gauge-ind-val" style="color:{sig_color}">{ind_val}</span>
-            </div>
-            <div class="gauge-ind-bar-bg"><div class="gauge-ind-bar" style="width:{bar_w}%;background:{sig_color}"></div></div>
+        sig = ind.get("signal", "neutral")
+        sig_colors = {"danger": "#c0392b", "warning": "#e67e22", "neutral": "#a67c28", "safe": "#27ae60", "cold": "#2980b9"}
+        c = sig_colors.get(sig, "#a67c28")
+        w = max(4, min(100, ind.get("score", 50)))
+        ind_html += f"""<div class="thm-ind">
+            <div class="thm-ind-row"><span class="thm-ind-name">{ind.get("name","")}</span><span class="thm-ind-val" style="color:{c}">{ind.get("value","")}</span></div>
+            <div class="thm-bar-track"><div class="thm-bar-fill" style="width:{w}%;background:{c}"></div></div>
         </div>"""
 
     return f"""
-    <div class="card gauge-card">
+    <div class="card thm-card">
         <h2>{section.get('title', '市场温度计')}</h2>
-        {f'<p style="font-size:13px;color:#9e8e6e;margin-top:4px;">{subtitle}</p>' if subtitle else ''}
-        <div class="gauge-container">
-            <div class="gauge-dial">
-                <div class="gauge-bg">
-                    <div class="gauge-zone gz-cold"></div>
-                    <div class="gauge-zone gz-fear"></div>
-                    <div class="gauge-zone gz-neutral"></div>
-                    <div class="gauge-zone gz-greed"></div>
-                    <div class="gauge-zone gz-extreme"></div>
-                </div>
-                <div class="gauge-needle" style="transform:rotate({needle_deg}deg)">
-                    <div class="gauge-needle-line"></div>
-                </div>
-                <div class="gauge-center">
-                    <div class="gauge-score" style="color:{zone_color}">{score}</div>
-                    <div class="gauge-label" style="color:{zone_color}">{display_label}</div>
-                </div>
-                <div class="gauge-ticks">
-                    <span class="gt-0">0</span><span class="gt-25">25</span><span class="gt-50">50</span><span class="gt-75">75</span><span class="gt-100">100</span>
-                </div>
-                <div class="gauge-zone-labels">
-                    <span style="color:#2980b9">极度恐惧</span>
-                    <span style="color:#27ae60">恐惧</span>
-                    <span style="color:#d4a94a">中性</span>
-                    <span style="color:#e67e22">贪婪</span>
-                    <span style="color:#c0392b">极度贪婪</span>
+        {f'<p class="thm-sub">{subtitle}</p>' if subtitle else ''}
+        <div class="thm-wrap">
+            <div class="thm-col-left">
+                <div class="thm-scale">{scale_html}</div>
+                <div class="thm-stem">
+                    <div class="thm-tube">
+                        <div class="thm-mercury" style="height:{fill_pct}%;background:linear-gradient(to top,{zone_color},{zone_color}dd)"></div>
+                        <div class="thm-glare"></div>
+                    </div>
+                    <div class="thm-cap"></div>
+                    <div class="thm-bulb" style="background:radial-gradient(circle at 38% 38%,{zone_color}ee,{zone_color})">
+                        <div class="thm-bulb-hi"></div>
+                    </div>
                 </div>
             </div>
-            <p class="gauge-desc">{zone_desc}</p>
+            <div class="thm-col-right">
+                <div class="thm-big"><span class="thm-num" style="color:{zone_color}">{score}</span><span class="thm-of">/100</span></div>
+                <div class="thm-badge" style="background:{zone_color}">{display_label}</div>
+                <p class="thm-advice">{zone_desc}</p>
+                {f'<div class="thm-inds">{ind_html}</div>' if indicators else ''}
+            </div>
         </div>
-        {f'<div class="gauge-indicators">{indicator_rows}</div>' if indicators else ''}
     </div>"""
 
 
@@ -447,36 +440,80 @@ tbody tr:nth-child(even) td { background: #f5eed6; }
 .footer { text-align: center; padding: 28px; color: #9e8e6e; font-size: 12px; letter-spacing: 1px; }
 @media (max-width: 768px) { .chart-row { flex-direction: column; } }
 
-/* Gauge / Thermometer */
-.gauge-card { overflow: visible; }
-.gauge-container { text-align: center; padding: 10px 0 0; }
-.gauge-dial { position: relative; width: 280px; height: 170px; margin: 0 auto; }
-.gauge-bg { position: absolute; top: 0; left: 0; width: 280px; height: 140px; border-radius: 140px 140px 0 0; overflow: hidden; }
-.gauge-zone { position: absolute; bottom: 0; left: 50%; transform-origin: bottom center; height: 140px; width: 140px; }
-.gz-cold    { transform: rotate(-90deg); background: linear-gradient(to top, #2980b9, #3498db); clip-path: polygon(50% 100%,50% 0%,100% 0%,100% 100%); opacity:.85; }
-.gz-fear    { transform: rotate(-54deg); background: linear-gradient(to top, #27ae60, #2ecc71); clip-path: polygon(50% 100%,50% 0%,100% 0%,100% 100%); opacity:.85; }
-.gz-neutral { transform: rotate(-18deg); background: linear-gradient(to top, #d4a94a, #f1c40f); clip-path: polygon(50% 100%,50% 0%,100% 0%,100% 100%); opacity:.85; }
-.gz-greed   { transform: rotate(18deg);  background: linear-gradient(to top, #e67e22, #f39c12); clip-path: polygon(50% 100%,50% 0%,100% 0%,100% 100%); opacity:.85; }
-.gz-extreme { transform: rotate(54deg);  background: linear-gradient(to top, #c0392b, #e74c3c); clip-path: polygon(50% 100%,50% 0%,100% 0%,100% 100%); opacity:.85; }
-.gauge-needle { position: absolute; bottom: 0; left: 50%; width: 4px; height: 120px; margin-left: -2px; transform-origin: bottom center; transition: transform 1s cubic-bezier(.4,2,.5,.8); z-index: 10; }
-.gauge-needle-line { width: 4px; height: 100%; background: linear-gradient(to top, #3d2e1c, #6b4c1e); border-radius: 2px; box-shadow: 0 0 6px rgba(0,0,0,0.3); }
-.gauge-center { position: absolute; bottom: -10px; left: 50%; transform: translateX(-50%); text-align: center; z-index: 11; }
-.gauge-score { font-size: 42px; font-weight: 700; line-height: 1; }
-.gauge-label { font-size: 16px; font-weight: 600; margin-top: 2px; letter-spacing: 2px; }
-.gauge-ticks { position: absolute; bottom: 0; left: 0; width: 100%; font-size: 11px; color: #9e8e6e; }
-.gauge-ticks span { position: absolute; bottom: -2px; }
-.gt-0 { left: 2px; } .gt-25 { left: 42px; bottom: 55px !important; } .gt-50 { left: 50%; transform: translateX(-50%); bottom: 75px !important; } .gt-75 { right: 42px; bottom: 55px !important; } .gt-100 { right: 2px; }
-.gauge-zone-labels { display: flex; justify-content: space-between; margin-top: 8px; font-size: 11px; font-weight: 600; }
-.gauge-desc { margin-top: 16px; font-size: 14px; color: #6b4c1e; font-weight: 600; }
+/* ── Thermometer ── */
+.thm-card { overflow: visible; }
+.thm-sub { font-size: 13px; color: #9e8e6e; margin: 4px 0 0; }
 
-/* Gauge Indicators */
-.gauge-indicators { margin-top: 20px; padding-top: 18px; border-top: 2px solid #d4c5a0; }
-.gauge-ind { margin-bottom: 12px; }
-.gauge-ind-header { display: flex; justify-content: space-between; margin-bottom: 4px; }
-.gauge-ind-name { font-size: 13px; color: #6b4c1e; font-weight: 600; }
-.gauge-ind-val { font-size: 13px; font-weight: 700; }
-.gauge-ind-bar-bg { height: 8px; background: #e8dfc5; border-radius: 4px; overflow: hidden; }
-.gauge-ind-bar { height: 100%; border-radius: 4px; transition: width 0.8s ease; }
+.thm-wrap { display: flex; gap: 36px; align-items: center; margin-top: 18px; }
+.thm-col-left { position: relative; flex: 0 0 auto; display: flex; gap: 0; }
+.thm-col-right { flex: 1; min-width: 0; }
+
+/* — scale labels (left of tube) — */
+.thm-scale { position: relative; width: 72px; height: 280px; margin-right: 6px; flex-shrink: 0; }
+.thm-sc { position: absolute; right: 0; display: flex; align-items: center; gap: 0; transform: translateY(50%); white-space: nowrap; }
+.thm-sc-num { font-size: 11px; color: #b0a48a; width: 24px; text-align: right; font-weight: 600; }
+.thm-sc-tick { display: block; width: 8px; height: 1.5px; background: #c4b896; margin: 0 5px; flex-shrink: 0; }
+.thm-sc-txt { font-size: 10.5px; font-weight: 600; letter-spacing: .5px; }
+.thm-sc-active .thm-sc-num { color: #6b4c1e; font-size: 12px; }
+.thm-sc-active .thm-sc-tick { width: 12px; height: 2.5px; background: #8b6914; }
+.thm-sc-active .thm-sc-txt { font-size: 12px; }
+
+/* — thermometer stem — */
+.thm-stem { position: relative; width: 28px; height: 280px; display: flex; flex-direction: column; align-items: center; }
+
+.thm-cap { width: 28px; height: 14px; background: linear-gradient(to bottom, #d8ceb4, #c4b896);
+  border-radius: 14px 14px 0 0; border: 2px solid #b8aa8a; border-bottom: none; position: relative; z-index: 3;
+  box-shadow: inset 0 2px 4px rgba(255,255,255,.4); }
+
+.thm-tube { position: relative; width: 28px; flex: 1; z-index: 2;
+  background: linear-gradient(to right, #ddd5c0 0%, #f2eadb 25%, #faf6ee 45%, #f2eadb 70%, #ddd5c0 100%);
+  border-left: 2px solid #b8aa8a; border-right: 2px solid #b8aa8a;
+  overflow: hidden; }
+
+.thm-mercury { position: absolute; bottom: 0; left: 4px; right: 4px;
+  border-radius: 8px 8px 0 0;
+  box-shadow: 0 0 8px rgba(0,0,0,.08);
+  transition: height 1.4s cubic-bezier(.25,.85,.35,1.05); }
+
+.thm-glare { position: absolute; top: 0; bottom: 0; left: 5px; width: 5px;
+  background: linear-gradient(to bottom, rgba(255,255,255,.55), rgba(255,255,255,.15) 60%, rgba(255,255,255,.3));
+  border-radius: 3px; pointer-events: none; }
+
+.thm-bulb { position: relative; width: 48px; height: 48px; border-radius: 50%; z-index: 1;
+  margin-top: -6px; margin-left: -10px;
+  border: 2px solid #b8aa8a;
+  box-shadow: 0 4px 14px rgba(0,0,0,.12), inset 0 -3px 8px rgba(0,0,0,.1);
+  transition: background .8s ease; }
+
+.thm-bulb-hi { position: absolute; top: 9px; left: 11px; width: 14px; height: 14px;
+  background: radial-gradient(circle, rgba(255,255,255,.55), transparent 70%);
+  border-radius: 50%; }
+
+/* — right column — */
+.thm-big { display: flex; align-items: baseline; gap: 3px; margin-bottom: 8px; }
+.thm-num { font-size: 56px; font-weight: 700; line-height: 1; letter-spacing: -2px; }
+.thm-of { font-size: 20px; color: #b0a48a; font-weight: 600; }
+
+.thm-badge { display: inline-block; color: #fff; padding: 5px 20px; border-radius: 4px;
+  font-size: 15px; font-weight: 700; letter-spacing: 4px; margin-bottom: 14px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.15); }
+
+.thm-advice { font-size: 13.5px; color: #6b4c1e; line-height: 1.7; margin-bottom: 18px; }
+
+/* — indicator bars — */
+.thm-inds { border-top: 1.5px solid #d4c5a0; padding-top: 16px; }
+.thm-ind { margin-bottom: 11px; }
+.thm-ind-row { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; }
+.thm-ind-name { font-size: 12.5px; color: #6b4c1e; font-weight: 600; }
+.thm-ind-val { font-size: 12px; font-weight: 700; }
+.thm-bar-track { height: 7px; background: #e8dfc5; border-radius: 4px; overflow: hidden; }
+.thm-bar-fill { height: 100%; border-radius: 4px; transition: width .9s ease; }
+
+@media (max-width: 768px) {
+  .thm-wrap { flex-direction: column; align-items: center; }
+  .thm-stem { height: 240px; }
+  .thm-scale { height: 240px; }
+}
 """
 
 
