@@ -55,11 +55,11 @@ def _safe_float(v, default=0.0):
 # ---------------------------------------------------------------------------
 
 def get_indices() -> str:
-    codes = "sh000001,sz399001,sz399006,sh000688,sh000300,sh000016,sh000905"
+    codes = "sh000001,sz399001,sz399006,sh000688,sh000300,sh000016,sh000905,sh000852,sz399303"
     names = {
         "000001": "上证指数", "399001": "深证成指", "399006": "创业板指",
         "000688": "科创50", "000300": "沪深300", "000016": "上证50",
-        "000905": "中证500",
+        "000905": "中证500", "000852": "中证1000", "399303": "国证2000",
     }
     try:
         r = _req(f"https://qt.gtimg.cn/q={codes}")
@@ -443,7 +443,86 @@ def get_macro_data() -> str:
 
 
 # ---------------------------------------------------------------------------
-# 10. 大盘资金流向 (整体市场)
+# 10. 个股资金流向排行 (当日主力净流入/流出 Top N)
+# ---------------------------------------------------------------------------
+
+def get_stock_flow_rank(direction: str = "inflow", limit: int = 20) -> str:
+    po = "1" if direction == "inflow" else "0"
+    url = (
+        f"https://push2.eastmoney.com/api/qt/clist/get?"
+        f"pn=1&pz={limit}&po={po}&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281"
+        f"&fltt=2&invt=2&fid=f62&fs=m:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048"
+        f"&fields=f12,f14,f2,f3,f62,f184,f66,f69,f72,f75,f78,f81,f84,f87"
+    )
+    try:
+        r = _req(url)
+        data = r.json()
+        if data.get("data") is None:
+            raise ValueError("数据为空")
+        items = data["data"].get("diff", [])
+        results = []
+        for item in items:
+            results.append({
+                "名称": item.get("f14", ""),
+                "代码": item.get("f12", ""),
+                "最新价": item.get("f2"),
+                "涨跌幅%": item.get("f3"),
+                "主力净流入(万)": round(item.get("f62", 0) / 10000, 2) if item.get("f62") else 0,
+                "主力净流入占比%": item.get("f184"),
+                "超大单净流入(万)": round(item.get("f66", 0) / 10000, 2) if item.get("f66") else 0,
+                "大单净流入(万)": round(item.get("f72", 0) / 10000, 2) if item.get("f72") else 0,
+                "中单净流入(万)": round(item.get("f78", 0) / 10000, 2) if item.get("f78") else 0,
+                "小单净流入(万)": round(item.get("f84", 0) / 10000, 2) if item.get("f84") else 0,
+            })
+        label = "净流入" if direction == "inflow" else "净流出"
+        return json.dumps({"类型": f"个股主力{label}Top{limit}", "数据": results}, ensure_ascii=False, indent=2)
+    except Exception as e:
+        return json.dumps({"error": f"个股资金流向排行获取失败(push2不可用): {e}，请改用 WebSearch 搜索「今日A股 主力资金净流入 个股排名」获取数据"}, ensure_ascii=False)
+
+
+# ---------------------------------------------------------------------------
+# 10b. 板块资金流向 (datacenter-web 备用)
+# ---------------------------------------------------------------------------
+
+def get_sector_flow_dc() -> str:
+    plates = [
+        ("沪深两市", "沪深两市"), ("沪深300", "沪深300"), ("上证50", "上证50"),
+        ("创业板指", "创业板指"), ("科创50", "科创板"),
+    ]
+    results = []
+    for label, plate in plates:
+        from urllib.parse import quote
+        url = (
+            f"https://datacenter-web.eastmoney.com/api/data/v1/get?"
+            f"reportName=RPT_MARKET_CAPITALFLOW&columns=ALL"
+            f"&pageSize=1&sortColumns=TRADE_DATE&sortTypes=-1&pageNumber=1"
+            f"&filter=(BONDTYPE=%22A%E8%82%A1%22)(PLATE=%22{quote(plate)}%22)"
+        )
+        try:
+            r = _req(url)
+            data = r.json()
+            if data.get("success") and data["result"]["data"]:
+                d = data["result"]["data"][0]
+                results.append({
+                    "板块": label,
+                    "日期": str(d.get("TRADE_DATE", ""))[:10],
+                    "涨家数": d.get("INNUM"),
+                    "跌家数": d.get("OUTNUM"),
+                    "主力净流入(万)": round(_safe_float(d.get("NET_INFLOW")), 2),
+                    "超大单净流入(万)": round(_safe_float(d.get("SUPERDEAL_NET", 0)), 2),
+                    "大单净流入(万)": round(_safe_float(d.get("BIGDEAL_NET", 0)), 2),
+                    "主力流入(万)": round(_safe_float(d.get("MAIN_INFLOW")), 2),
+                    "主力流出(万)": round(_safe_float(d.get("MAIN_OUTFLOW")), 2),
+                })
+        except Exception:
+            pass
+    if results:
+        return json.dumps(results, ensure_ascii=False, indent=2)
+    return json.dumps({"error": "板块资金分层数据获取失败"}, ensure_ascii=False)
+
+
+# ---------------------------------------------------------------------------
+# 11. 大盘资金流向 (整体市场)
 # ---------------------------------------------------------------------------
 
 def get_market_flow() -> str:
@@ -502,6 +581,11 @@ def main():
     p_flow = sub.add_parser("stock-flow", help="个股资金流向")
     p_flow.add_argument("code", help="6位股票代码")
 
+    p_sfr = sub.add_parser("stock-flow-rank", help="个股资金流向排行")
+    p_sfr.add_argument("direction", choices=["inflow", "outflow"], help="inflow=净流入榜 outflow=净流出榜")
+    p_sfr.add_argument("--limit", type=int, default=20)
+
+    sub.add_parser("sector-flow-dc", help="板块资金分层流向 (沪深两市/300/50/创业板/科创)")
     sub.add_parser("concept-ranking", help="概念板块涨跌排名")
     sub.add_parser("macro", help="宏观经济指标 (PMI/CPI/GDP)")
 
@@ -529,6 +613,10 @@ def main():
             result = get_limit_stats()
         elif args.command == "stock-flow":
             result = get_stock_flow(args.code)
+        elif args.command == "stock-flow-rank":
+            result = get_stock_flow_rank(args.direction, args.limit)
+        elif args.command == "sector-flow-dc":
+            result = get_sector_flow_dc()
         elif args.command == "concept-ranking":
             result = get_concept_ranking()
         elif args.command == "macro":

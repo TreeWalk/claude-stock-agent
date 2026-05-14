@@ -23,12 +23,15 @@ pip install akshare pandas requests
 
 | 命令 | 说明 |
 |------|------|
-| `python tools/market.py indices` | 大盘主要指数（上证/深证/创业板/科创50/沪深300/上证50/中证500） |
+| `python tools/market.py indices` | 大盘9大指数（上证/深证/创业板/科创50/沪深300/上证50/中证500/**中证1000**/**国证2000**） |
 | `python tools/market.py sector-ranking` | 行业板块涨跌排名（全部行业） |
 | `python tools/market.py concept-ranking` | 概念板块涨跌排名（热门概念） |
-| `python tools/market.py sector-flow` | 板块资金流向 Top30（主力/超大单/大单/中单/小单） |
+| `python tools/market.py sector-flow` | 行业板块资金流向 Top30（主力/超大单/大单/中单/小单） |
+| `python tools/market.py sector-flow-dc` | **板块资金分层**（沪深两市/沪深300/上证50/创业板/科创板 主力流入流出） |
 | `python tools/market.py market-flow` | 大盘整体资金流向（近10个交易日） |
 | `python tools/market.py northbound` | 北向资金（沪股通/深股通净流入） |
+| `python tools/market.py stock-flow-rank inflow` | **个股主力净流入排行** Top20 |
+| `python tools/market.py stock-flow-rank outflow` | **个股主力净流出排行** Top20 |
 | `python tools/market.py top-stocks gainers` | 涨幅榜 Top20 |
 | `python tools/market.py top-stocks losers` | 跌幅榜 Top20 |
 | `python tools/market.py top-stocks volume` | 成交额榜 Top20 |
