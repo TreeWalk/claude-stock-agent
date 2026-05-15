@@ -1,0 +1,78 @@
+name: Send Report Email
+
+on:
+  push:
+    paths:
+      - 'reports/market_*.html'
+      - 'reports/email_*.html'
+
+jobs:
+  send-email:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find latest report
+        id: find
+        run: |
+          # 找最新的 HTML 报告文件
+          REPORT=$(ls -t reports/market_*.html reports/email_*.html 2>/dev/null | head -1)
+          if [ -z "$REPORT" ]; then
+            echo "No report found"
+            exit 1
+          fi
+          echo "file=$REPORT" >> $GITHUB_OUTPUT
+
+          # 从文件名提取日期
+          DATE=$(echo "$REPORT" | grep -oP '\d{8}' | head -1)
+          if [ -n "$DATE" ]; then
+            DATE="${DATE:0:4}-${DATE:4:2}-${DATE:6:2}"
+          else
+            DATE=$(date +%Y-%m-%d)
+          fi
+          echo "date=$DATE" >> $GITHUB_OUTPUT
+
+          # 判断类型
+          if echo "$REPORT" | grep -q "half\|半日"; then
+            echo "type=半日盘中分析" >> $GITHUB_OUTPUT
+          else
+            echo "type=收盘分析" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send email via Resend
+        run: |
+          HTML_CONTENT=$(cat "${{ steps.find.outputs.file }}")
+
+          # 构建 JSON payload
+          python3 -c "
+          import json, sys
+
+          with open('${{ steps.find.outputs.file }}', 'r') as f:
+              html = f.read()
+
+          payload = {
+              'from': 'stock-agent@tagwall.top',
+              'to': ['anc3776@gmail.com'],
+              'cc': ['1498964760@qq.com'],
+              'subject': 'A股${{ steps.find.outputs.type }} — ${{ steps.find.outputs.date }}',
+              'html': html,
+              'text': 'A股${{ steps.find.outputs.type }} — ${{ steps.find.outputs.date }}，详见 HTML 正文。'
+          }
+
+          with open('/tmp/payload.json', 'w') as f:
+              json.dump(payload, f, ensure_ascii=False)
+          "
+
+          RESPONSE=$(curl -s -X POST 'https://api.resend.com/emails' \
+            -H "Authorization: Bearer ${{ secrets.RESEND_API_KEY }}" \
+            -H 'Content-Type: application/json' \
+            -d @/tmp/payload.json)
+
+          echo "Resend response: $RESPONSE"
+
+          if echo "$RESPONSE" | grep -q '"id"'; then
+            echo "✅ 邮件发送成功"
+          else
+            echo "❌ 邮件发送失败"
+            exit 1
+          fi
